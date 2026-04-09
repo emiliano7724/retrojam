@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RetroJam 🎸</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+      "firebase/analytics": "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- ===================== BANNER FINALIZADO ===================== -->
+  <div id="finalized-banner" class="finalized-banner hidden">
+    🔒 Sesión finalizada · Solo lectura
+  </div>
+
+  <!-- ===================== HEADER ===================== -->
+  <header id="app-header" class="hidden">
+    <span class="header-logo">🎸 Retro Music Spartans</span>
+    <div class="header-board-info">
+      <span id="header-board-name" class="header-board-name"></span>
+      <span id="header-room-code"></span>
+    </div>
+    <div id="connected-users" class="connected-users"></div>
+    <div class="header-room">
+      <button id="btn-copy-room" title="Copiar código de sala">Copiar código</button>
+      <button id="btn-leave" class="btn-leave">Salir</button>
+    </div>
+  </header>
+
+  <!-- ===================== NAV ===================== -->
+  <nav id="app-nav" class="hidden">
+    <button class="nav-btn" data-screen="checklist">🎵 TrackList</button>
+    <button class="nav-btn" data-screen="retro">Retro</button>
+    <button class="nav-btn" data-screen="spins">Ruletas</button>
+    <button class="nav-btn" data-screen="final">🤖 IA</button>
+    <button class="nav-btn" data-screen="sorteo">🎲 Sorteo</button>
+    <span id="nav-lock-label" class="nav-lock-label hidden">🔒 El facilitador controla la navegación</span>
+  </nav>
+
+  <!-- ===================== SCREEN: HOME ===================== -->
+  <section id="screen-home" class="screen active">
+    <div class="home-box">
+      <div class="home-guitar">🎸</div>
+      <h1>Retro Music<br>Spartans</h1>
+      <p class="subtitle">Retrospectiva + canción</p>
+
+      <div class="form-group">
+        <label for="input-name">Tu nombre</label>
+        <input id="input-name" type="text" placeholder="Ej: Emi" maxlength="30" />
+      </div>
+
+      <div class="form-group" id="board-name-group">
+        <label for="input-board-name">Nombre de la retro <span class="hint">(solo al crear)</span></label>
+        <input id="input-board-name" type="text" placeholder="Ej: Sprint 2 Q3" maxlength="50" />
+      </div>
+
+      <div class="form-group">
+        <label for="input-room">Código de sala <span class="hint">(vacío para crear)</span></label>
+        <input id="input-room" type="text" placeholder="Ej: RETRO-XK7M" maxlength="20" />
+      </div>
+
+      <div id="home-error" class="error-msg hidden"></div>
+
+      <div class="home-buttons">
+        <button id="btn-crear" class="btn-primary">Crear sala</button>
+        <button id="btn-unirse" class="btn-secondary">Unirse</button>
+      </div>
+
+      <div id="codigo-generado" class="hidden">
+        <p>Sala creada:</p>
+        <span id="codigo-display"></span>
+        <button id="btn-copy-code">Copiar</button>
+        <button id="btn-entrar" class="btn-primary">Entrar a la sala</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SCREEN: TRACKLIST ===================== -->
+  <section id="screen-checklist" class="screen hidden">
+    <h2>🎵 TrackList</h2>
+
+    <div class="input-row">
+      <input id="checklist-input" type="text" placeholder="Track accionable pasado..." maxlength="200" />
+      <button id="btn-add-checklist" class="btn-primary">Agregar</button>
+    </div>
+
+    <ul id="checklist-list" class="checklist-list"></ul>
+  </section>
+
+  <!-- ===================== SCREEN: RETRO ===================== -->
+  <section id="screen-retro" class="screen hidden">
+    <h2>🎵 Retrospectiva</h2>
+
+    <div class="retro-columns">
+      <div class="retro-col col-feliz">
+        <h3>🎶 Canciones felices</h3>
+        <div class="input-col">
+          <textarea id="retro-feliz-input" placeholder="Escribe algo positivo..." maxlength="300" rows="2"></textarea>
+          <button id="btn-add-feliz" class="btn-primary">Agregar</button>
+        </div>
+        <div id="cards-feliz" class="cards-list"></div>
+      </div>
+
+      <div class="retro-col col-triste">
+        <h3>😢 Canciones tristes para volvernos mejor</h3>
+        <div class="input-col">
+          <textarea id="retro-triste-input" placeholder="Escribe algo a mejorar..." maxlength="300" rows="2"></textarea>
+          <button id="btn-add-triste" class="btn-secondary">Agregar</button>
+        </div>
+        <div id="cards-triste" class="cards-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SCREEN: SPINS ===================== -->
+  <section id="screen-spins" class="screen hidden">
+    <h2>🎡 Ruletas</h2>
+    <div class="spins-grid">
+
+      <div class="spin-card">
+        <h3>👤 Participante</h3>
+        <p class="spin-subtitle">¿Quién gira la próxima ruleta?</p>
+        <div class="wheel-wrap">
+          <canvas id="wheel-persona" width="220" height="220"></canvas>
+        </div>
+        <button id="btn-spin-persona" class="btn-primary">Girar</button>
+        <div id="spin-persona-result" class="spin-result"></div>
+        <div id="spin-persona-turn" class="spin-turn"></div>
+      </div>
+
+      <div class="spin-card">
+        <h3>🎧 Estilo musical</h3>
+        <div class="wheel-wrap">
+          <canvas id="wheel-estilo" width="220" height="220"></canvas>
+        </div>
+        <button id="btn-spin-estilo" class="btn-primary">Girar</button>
+        <div id="spin-estilo-result" class="spin-result"></div>
+      </div>
+
+      <div class="spin-card">
+        <h3>🎼 Progresión de acordes</h3>
+        <div class="wheel-wrap">
+          <canvas id="wheel-acordes" width="220" height="220"></canvas>
+        </div>
+        <button id="btn-spin-acordes" class="btn-primary">Girar</button>
+        <div id="spin-acordes-result" class="spin-result"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== SCREEN: IA ===================== -->
+  <section id="screen-final" class="screen hidden">
+    <h2>🤖 IA</h2>
+
+    <div class="final-meta">
+      <span>Estilo: <strong id="final-estilo">—</strong></span>
+      <span>Acordes: <strong id="final-acordes">—</strong></span>
+    </div>
+
+    <div class="form-group">
+      <label>Prompt para IA (ChatGPT / Gemini):</label>
+      <textarea id="letra-textarea" rows="14" maxlength="5000"></textarea>
+    </div>
+    <button id="btn-copy-prompt" class="btn-primary btn-lg">Copiar prompt para IA</button>
+    <div id="copy-confirm" class="copy-confirm hidden">Copiado!</div>
+
+    <div class="form-group suno-section">
+      <label>Prompt para Suno <span class="hint">(estilo + acordes)</span>:</label>
+      <pre id="prompt-preview" class="prompt-box"></pre>
+      <button id="btn-copy-suno" class="btn-secondary">Copiar para Suno</button>
+    </div>
+
+    <button id="btn-regenerar" class="btn-secondary">Regenerar</button>
+  </section>
+
+  <!-- ===================== SCREEN: SORTEO ===================== -->
+  <section id="screen-sorteo" class="screen hidden">
+    <h2>🎲 Próximo compositor</h2>
+    <p class="sorteo-subtitle">¿Quién conduce la próxima retro?</p>
+
+    <div class="sorteo-wrap">
+      <div class="form-group">
+        <label for="sorteo-input">Participantes <span class="hint">(separados por coma)</span></label>
+        <input id="sorteo-input" type="text" placeholder="Emi, Juan, Pedro, Ana..." />
+      </div>
+
+      <div class="wheel-wrap">
+        <canvas id="wheel-sorteo" width="260" height="260"></canvas>
+      </div>
+
+      <button id="btn-spin-sorteo" class="btn-primary btn-lg">Girar</button>
+
+      <div id="sorteo-result-wrap" class="sorteo-result-wrap hidden">
+        <p class="sorteo-result-label">El próximo compositor es:</p>
+        <div id="sorteo-result" class="sorteo-result"></div>
+      </div>
+
+      <!-- Acciones finales — aparecen tras el sorteo -->
+      <div id="final-actions-wrap" class="final-actions-wrap hidden">
+        <div class="finalize-warning">
+          ⚠️ Una vez que finalices, nadie podrá seguir editando la sesión.
+        </div>
+        <div class="final-actions">
+          <button id="btn-export-pdf" class="btn-secondary">Exportar PDF</button>
+          <button id="btn-finalize" class="btn-danger">Finalizar retro 🔒</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== OVERLAY: SALA CERRADA ===================== -->
+  <div id="sala-cerrada-overlay" class="sala-cerrada-overlay hidden">
+    <div class="sala-cerrada-box">
+      <div class="sala-cerrada-icon">🚪</div>
+      <h2>La sala fue cerrada</h2>
+      <p>El facilitador terminó la sesión de RetroJam.</p>
+      <button id="btn-sala-cerrada-ok" class="btn-primary btn-lg">Volver al inicio</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
