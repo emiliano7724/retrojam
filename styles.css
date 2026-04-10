@@ -615,9 +615,11 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 /* ── SPINS ── */
 .spins-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
 }
+@media (max-width: 900px) { .spins-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px) { .spins-grid { grid-template-columns: 1fr; } }
 
 .spin-card {
   background: var(--glass);
@@ -754,6 +756,36 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
   border-top: 1px solid var(--border);
 }
 .final-actions button { flex: 1; }
+
+/* ── Acordes reales combinados ── */
+.acordes-reales-wrap {
+  margin-top: 20px;
+  background: linear-gradient(135deg, rgba(20,184,166,0.08), rgba(168,85,247,0.08));
+  border: 1px solid rgba(20,184,166,0.3);
+  border-radius: var(--r-md);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: fadeUp 0.3s ease;
+}
+.acordes-reales-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.acordes-reales-display {
+  font-family: var(--font-head);
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--teal), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 
 /* ── SORTEO ── */
 .sorteo-subtitle {

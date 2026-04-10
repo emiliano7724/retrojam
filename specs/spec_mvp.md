@@ -1,4 +1,4 @@
-# 🎸 Retro Music Spartans – Spec MVP (actualizado)
+# 🎸 Retro Music Spartans – Spec MVP (v1.1)
 
 ## 🧭 Objetivo
 
@@ -53,6 +53,7 @@ const firebaseConfig = {
   "createdAt": 1710000000,
   "createdBy": "Emi",
   "currentScreen": "checklist",
+  "sorteoParticipantes": "Emi, Juan, Pedro",
   "finalizedAt": null,
   "closedAt": null
 }
@@ -94,12 +95,17 @@ const firebaseConfig = {
 ```json
 {
   "roomId": "RETRO-XK7M",
-  "tipo": "estilo",
-  "resultado": "Thrash Metal",
+  "tipo": "tonalidad",
+  "resultado": "Re",
+  "menor": "Sim",
+  "keyCode": "D",
   "createdAt": 1710000000
 }
 ```
-Tipos de spin: `persona` | `estilo` | `acordes` | `compositor`
+
+Tipos de spin: `persona` | `estilo` | `tonalidad` | `acordes` | `compositor`
+
+**Nota:** Los spins de `tonalidad` guardan campos extra `menor` y `keyCode` para evitar parsing de strings. Los demás spins solo guardan `resultado`.
 
 ---
 
@@ -107,12 +113,13 @@ Tipos de spin: `persona` | `estilo` | `acordes` | `compositor`
 
 ## 1. 🏠 Home (Login)
 
-- Logo guitarra 🎸 con animación flotante
-- Título: **Retro Music Spartans**
+- Logo guitarra 🎸 con animación flotante (`floatGuitar`)
+- Título: **RetroJam Spartans** · subtítulo: v1.0.0
 - Inputs: Nombre · Nombre de la retro (ej: Sprint 2 Q3) · Código de sala
-- **Crear sala**: genera código aleatorio `RETRO-XXXX`, guarda en Firestore con `createdBy`
+- **Crear sala**: genera código `RETRO-XXXX`, crea doc en Firestore con `createdBy`
 - **Unirse**: verifica existencia, detecta si es facilitador (`createdBy === nombre`)
-- Salas cerradas/finalizadas: permite entrar en **modo solo lectura** (confirm dialog)
+- Salas cerradas/finalizadas: confirm dialog → entrar en **modo solo lectura**
+- Al entrar: limpia UI y state de sesión anterior
 
 ---
 
@@ -129,79 +136,100 @@ Tipos de spin: `persona` | `estilo` | `acordes` | `compositor`
 
 - Columna feliz: **Canciones felices**
 - Columna triste: **Canciones tristes para volvernos mejor**
-- Cards editables por el autor (botón ✏️ visible con hover)
+- Cards editables por el autor (botón ✏️ visible con hover → textarea inline)
 - NO sync mientras escribe, SI sync al guardar (`addDoc`)
 - `updateDoc` para editar card propia
 
 ---
 
-## 4. 🎡 Ruletas
-
-Tres ruletas animadas con Canvas (`SpinWheel` class):
+## 4. 🎡 Ruletas (4 en una fila)
 
 ### 👤 Participante
-- Se auto-puebla con los conectados (desde `presence`)
-- Resultado: muestra quién gira la próxima ruleta
+- Se auto-puebla con los conectados activos (desde `presence`)
+- Resultado: quién gira la próxima ruleta
 
 ### 🎧 Estilo Musical
-```js
-["Rock", "Cumbia", "Trap", "Folklore", "Electrónica", "Cuarteto",
- "Hard Rock", "Thrash Metal", "Industrial Metal",
- "Metal + Cumbia", "Reggae + Trap", "Folklore + Electrónica",
- "Jazz + Trap", "Punk + Bossa Nova"]
+14 opciones incluyendo combos:
+```
+Rock, Cumbia, Trap, Folklore, Electrónica, Cuarteto,
+Hard Rock, Thrash Metal, Industrial Metal,
+Metal + Cumbia, Reggae + Trap, Folklore + Electrónica,
+Jazz + Trap, Punk + Bossa Nova
 ```
 
-### 🎼 Acordes
-```js
-["I–V–vi–IV", "ii–V–I", "I–IV–V", "vi–IV–I–V"]
+### 🎵 Tonalidad (Círculo de quintas)
+12 tonalidades con mayor y relativa menor:
+```
+Do/Lam, Sol/Mim, Re/Sim, La/Fa#m, Mi/Do#m, Si/Sol#m,
+Fa#/Re#m, Reb/Sibm, Lab/Fam, Mib/Dom, Sib/Solm, Fa/Rem
+```
+Guarda: `resultado` (mayor), `menor`, `keyCode`
+
+### 🎼 Progresión
+```
+I-V-vi-IV, ii-V-I, I-IV-V, vi-IV-I-V
 ```
 
-Cada spin guarda en colección `spins` con tipo correspondiente.
+**Combinación tonalidad + progresión** → traduce a acordes reales:
+- Ej: Re mayor + I-V-vi-IV = `D - A - Bm - G`
+- Panel resultado: `Re mayor / Sim menor · D - A - Bm - G`
+- Prompt Suno: `key of Re major · chord progression: D - A - Bm - G`
 
 ---
 
 ## 5. 🤖 IA
 
 - Muestra estilo y acordes sorteados
-- **Prompt para IA** (ChatGPT / Gemini): textarea editable con prompt completo incluyendo cards de retro, estilo y acordes
-- **Prompt para Suno**: tags musicales generados desde `SUNO_TAGS` mapping + acordes
+- **Prompt IA** (ChatGPT / Gemini): textarea editable con cards de retro + estilo + acordes reales
+- **Prompt Suno**: tags musicales (`SUNO_TAGS` mapping) + key + acordes reales
 - Botones: Copiar prompt IA · Copiar para Suno · Regenerar
 
 ---
 
 ## 6. 🎲 Sorteo (Próximo compositor)
 
-- Ruleta animada con Canvas — nombres separados por coma
+- Input de participantes sincronizado a Firestore (`rooms.sorteoParticipantes`) con debounce 600ms
+- Solo el facilitador puede escribir; todos ven la lista en tiempo real vía `watchRoom`
+- Ruleta animada con Canvas — todos ven los segmentos actualizados
 - Al girar: muestra ganador, guarda en `state.spins.compositor` y Firestore
-- **Tras el sorteo aparecen:**
-  - ⚠️ Aviso "una vez finalizado no se podrá editar"
-  - **Exportar PDF** (para todos)
-  - **Finalizar retro 🔒** (solo facilitador)
+- `onSnapshot` de spins notifica el ganador a todos los participantes
+
+**Tras el sorteo aparecen:**
+- ⚠️ Aviso "una vez finalizado no se podrá editar"
+- **Exportar PDF** (para todos)
+- **Finalizar retro 🔒** (solo facilitador)
 
 ---
 
 # 🔐 Control de sesión
 
 ## Facilitador (creador de sala)
-- Controla la navegación entre pestañas para todos
+- Controla la navegación entre pestañas para todos los participantes
 - Puede cerrar la sala (`closedAt`) o finalizar (`finalizedAt`)
+- Puede escribir los participantes del sorteo (se sincronizan a Firestore)
 - Al salir: opción de cerrar para todos o solo salir
 
 ## Participante
-- Sigue la pestaña del facilitador en tiempo real
+- Sigue la pestaña del facilitador en tiempo real (hasta finalizar)
 - Puede editar sus propias cards
-- Ve en el header quién está conectado
+- Ve lista del sorteo sincronizada en tiempo real
 
-## Modo solo lectura
-- Al unirse a sala cerrada/finalizada → confirm dialog
-- Puede navegar libremente entre todas las pestañas
+## Finalizado (`finalizedAt`)
+- Todos (facilitador + participantes activos) pasan a `readOnlyMode = true`
+- Todos pueden navegar libremente entre pestañas
+- Nadie puede editar
+- Todos pueden exportar PDF
+
+## Modo solo lectura (sala cerrada/finalizada desde home)
+- Confirm dialog al unirse
+- Navega libremente todas las pestañas
 - No puede editar nada
 - Puede exportar PDF
 
 ## Presencia
-- Heartbeat cada 20 segundos
+- Heartbeat cada 20 segundos (`setDoc` con `merge: true`)
 - Usuario activo = `lastSeen < 45 segundos`
-- Muestra chips en el header: autor en teal, facilitador en púrpura con ⭐
+- Chips en header: yo en teal, facilitador en púrpura con ⭐
 
 ---
 
@@ -211,7 +239,7 @@ Genera `retrojam-RETRO-XXXX.pdf` con:
 - Header negro: nombre de la retro + código + fecha
 - TrackList con estados [OK] / [WIP] / [X]
 - Canciones felices y tristes con autor
-- Resultado de ruletas: estilo, acordes, participante, **próximo compositor**
+- Resultado de ruletas: estilo, tonalidad, acordes reales, **próximo compositor**
 - Prompt completo para IA
 - Tags para Suno
 - Footer con código + fecha + número de página
@@ -220,57 +248,59 @@ Genera `retrojam-RETRO-XXXX.pdf` con:
 
 # 🎨 UI/UX
 
-- **Tema oscuro** con gradientes radiales en el fondo
-- **Glassmorphism**: cards/paneles con `backdrop-filter: blur`
+- **Tema oscuro** con gradientes radiales (púrpura + teal)
+- **Glassmorphism**: `backdrop-filter: blur` + bordes translúcidos
 - **Tipografía**: Inter (UI) + Space Grotesk (títulos)
-- **Animaciones**: `fadeUp` en cambio de pantalla, `floatGuitar` en el login
+- **Animaciones**: `fadeUp` al navegar, `floatGuitar` en login
 - **Colores**: rojo `#f0476c` · púrpura `#a855f7` · teal `#14b8a6` · naranja `#f97316`
+- **4 ruletas en fila** (grid 4 columnas, responsive 2x2 en tablet, 1 col en mobile)
 - Responsive con grid adaptable
 
 ---
 
 # 🧠 Decisiones clave
 
-- ❌ Sin auth real — nombre por input
-- ✅ Realtime con Firestore (`onSnapshot`)
-- ❌ Sin `orderBy` en queries (evita índices compuestos) — ordenamiento client-side
-- ✅ Cards editables solo por el autor
-- ✅ Navegación controlada por facilitador (excepto modo solo lectura)
-- ✅ PDF exportable por todos post-sorteo
+- Sin `orderBy` en Firestore (evita índices compuestos) — ordenamiento client-side
+- Spins de tonalidad guardan `menor` y `keyCode` como campos separados (sin parsing de string)
+- Lista del sorteo guardada en `rooms` doc — no requiere colección nueva
+- `enterRoom` limpia UI y state completo antes de cargar nueva sala
+- Al finalizar, `readOnlyMode = true` para TODOS (no solo participantes)
 
 ---
 
-# ✅ Checklist de entrega
+# ✅ Checklist MVP
 
 - [x] Crear sala con nombre personalizado
 - [x] TrackList colaborativo con estados
 - [x] Cards retro feliz/triste con edición propia
-- [x] 3 ruletas animadas (Canvas) + sorteo
-- [x] Prompt para IA (ChatGPT) y Suno
-- [x] Presencia en tiempo real
+- [x] 4 ruletas animadas (Canvas)
+- [x] Círculo de quintas con traducción a acordes reales
+- [x] Prompt IA con acordes reales
+- [x] Prompt Suno con key + tags musicales
+- [x] Lista sorteo sincronizada a Firestore en tiempo real
+- [x] Presencia en tiempo real (chips en header)
 - [x] Control de navegación por facilitador
+- [x] Todos navegan libremente al finalizar
 - [x] Modo solo lectura para salas cerradas
 - [x] Exportar PDF completo
 - [x] Finalizar y bloquear sesión
-- [x] Deploy-ready (Vercel/Netlify)
+- [x] Limpieza de UI al entrar a nueva sala
 
 ---
 
 # 🚀 Deploy
 
 ```bash
-npx serve .         # local
-# o abrir con Live Server en VSCode
-# deploy: subir repo a Vercel/Netlify (static site)
+npx serve .   # local
+# deploy: Vercel / Netlify (static site, no build needed)
 ```
 
 ---
 
-# 💡 Posibles mejoras (post MVP)
+# 💡 Post MVP
 
 - Votación de cards
 - Timer de retro
-- Roles (facilitador explícito vs participante)
-- Historial de retros por sala
+- Historial de retros por código de sala
 - Exportar canción (audio)
 - Integración directa con Suno API

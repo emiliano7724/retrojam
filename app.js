@@ -164,6 +164,27 @@ function initHome() {
 }
 
 function enterRoom(roomId, userName, isFacilitator, facilName, boardName, readOnly = false) {
+  // Limpiar estado de sesión anterior
+  state.cards = [];
+  state.checklist = [];
+  state.spins = {};
+  state.finalized = false;
+  state.connectedUsers = [];
+
+  // Limpiar UI de sesión anterior
+  document.getElementById("checklist-list").innerHTML = "";
+  document.getElementById("cards-feliz").innerHTML = "";
+  document.getElementById("cards-triste").innerHTML = "";
+  document.getElementById("sorteo-input").value = "";
+  document.getElementById("sorteo-result-wrap").classList.add("hidden");
+  document.getElementById("sorteo-result").textContent = "";
+  document.getElementById("acordes-reales-wrap")?.classList.add("hidden");
+  document.getElementById("final-actions-wrap")?.classList.add("hidden");
+  document.getElementById("finalized-banner").classList.add("hidden");
+  ["spin-persona-result","spin-estilo-result","spin-tonalidad-result","spin-acordes-result"]
+    .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
+  if (wheelSorteo) wheelSorteo.setOptions(["?"]);
+
   state.roomId = roomId;
   state.userName = userName;
   state.isFacilitator = isFacilitator;
@@ -462,18 +483,83 @@ const SUNO_TAGS = {
   "Jazz + Trap":            "jazz trap, saxophone, 808, lo-fi, sophisticated, modern",
   "Punk + Bossa Nova":      "punk bossa nova, fast strumming, samba groove, rebellious, fun",
 };
-const ACORDES = ["I–V–vi–IV", "ii–V–I", "I–IV–V", "vi–IV–I–V"];
+const PROGRESIONES = ["I-V-vi-IV", "ii-V-I", "I-IV-V", "vi-IV-I-V"];
 
-let wheelPersona, wheelEstilo, wheelAcordes;
+// Círculo de quintas — sentido horario desde Do
+const CIRCULO_QUINTAS = [
+  { mayor: "Do",  menor: "Lam",   key: "C"  },
+  { mayor: "Sol", menor: "Mim",   key: "G"  },
+  { mayor: "Re",  menor: "Sim",   key: "D"  },
+  { mayor: "La",  menor: "Fa#m",  key: "A"  },
+  { mayor: "Mi",  menor: "Do#m",  key: "E"  },
+  { mayor: "Si",  menor: "Sol#m", key: "B"  },
+  { mayor: "Fa#", menor: "Re#m",  key: "F#" },
+  { mayor: "Reb", menor: "Sibm",  key: "Db" },
+  { mayor: "Lab", menor: "Fam",   key: "Ab" },
+  { mayor: "Mib", menor: "Dom",   key: "Eb" },
+  { mayor: "Sib", menor: "Solm",  key: "Bb" },
+  { mayor: "Fa",  menor: "Rem",   key: "F"  },
+];
+
+// Grados diatónicos por tonalidad (I ii iii IV V vi vii)
+const GRADOS_MAP = {
+  "C":  ["C","Dm","Em","F","G","Am","Bdim"],
+  "G":  ["G","Am","Bm","C","D","Em","F#dim"],
+  "D":  ["D","Em","F#m","G","A","Bm","C#dim"],
+  "A":  ["A","Bm","C#m","D","E","F#m","G#dim"],
+  "E":  ["E","F#m","G#m","A","B","C#m","D#dim"],
+  "B":  ["B","C#m","D#m","E","F#","G#m","A#dim"],
+  "F#": ["F#","G#m","A#m","B","C#","D#m","Fdim"],
+  "Db": ["Db","Ebm","Fm","Gb","Ab","Bbm","Cdim"],
+  "Ab": ["Ab","Bbm","Cm","Db","Eb","Fm","Gdim"],
+  "Eb": ["Eb","Fm","Gm","Ab","Bb","Cm","Ddim"],
+  "Bb": ["Bb","Cm","Dm","Eb","F","Gm","Adim"],
+  "F":  ["F","Gm","Am","Bb","C","Dm","Edim"],
+};
+const GRADO_IDX = { "I":0,"ii":1,"iii":2,"IV":3,"V":4,"vi":5,"vii":6 };
+
+function traducirProgresion(keyCode, progresion) {
+  const acordes = GRADOS_MAP[keyCode] || GRADOS_MAP["C"];
+  return progresion.split("-").map(g => acordes[GRADO_IDX[g] ?? 0] || g).join(" - ");
+}
+
+function getAcordesRealesLabel() {
+  const tonalidad = state.spins.tonalidad;
+  const prog = state.spins.acordes?.resultado;
+  if (!tonalidad || !prog) return null;
+
+  // Los campos vienen directo del doc de Firestore — sin parsing
+  const tonoMayor = tonalidad.resultado;
+  const tonoMenor = tonalidad.menor;
+  const keyCode   = tonalidad.keyCode;
+
+  // Fallback si hay docs viejos sin los nuevos campos
+  if (!tonoMayor || !keyCode) {
+    const entry = CIRCULO_QUINTAS[0];
+    return {
+      tonoMayor: entry.mayor,
+      tonoMenor: entry.menor,
+      keyCode: entry.key,
+      acordesReales: traducirProgresion(entry.key, prog),
+    };
+  }
+
+  const acordesReales = traducirProgresion(keyCode, prog);
+  return { tonoMayor, tonoMenor: tonoMenor || "", keyCode, acordesReales };
+}
+
+let wheelPersona, wheelEstilo, wheelTonalidad, wheelProgresion;
 
 function initSpins() {
-  wheelPersona = new SpinWheel("wheel-persona", ["Esperando..."]);
-  wheelEstilo  = new SpinWheel("wheel-estilo", ESTILOS);
-  wheelAcordes = new SpinWheel("wheel-acordes", ACORDES);
+  wheelPersona    = new SpinWheel("wheel-persona", ["Esperando..."]);
+  wheelEstilo     = new SpinWheel("wheel-estilo", ESTILOS);
+  wheelTonalidad  = new SpinWheel("wheel-tonalidad", CIRCULO_QUINTAS.map(t => `${t.mayor}/${t.menor}`));
+  wheelProgresion = new SpinWheel("wheel-progresion", PROGRESIONES);
 
   document.getElementById("btn-spin-persona").addEventListener("click", spinPersona);
   document.getElementById("btn-spin-estilo").addEventListener("click", spinEstilo);
-  document.getElementById("btn-spin-acordes").addEventListener("click", spinAcordes);
+  document.getElementById("btn-spin-tonalidad").addEventListener("click", spinTonalidad);
+  document.getElementById("btn-spin-progresion").addEventListener("click", spinProgresion);
 }
 
 async function spinPersona() {
@@ -494,11 +580,60 @@ async function spinEstilo() {
   });
 }
 
-async function spinAcordes() {
-  const idx = Math.floor(Math.random() * ACORDES.length);
-  wheelAcordes.spin(idx, async () => {
-    await saveSpin("acordes", ACORDES[idx]);
+async function spinTonalidad() {
+  const idx = Math.floor(Math.random() * CIRCULO_QUINTAS.length);
+  wheelTonalidad.spin(idx, async () => {
+    const t = CIRCULO_QUINTAS[idx];
+    // Guardar campos separados — sin parsing de string
+    state.spins.tonalidad = {
+      resultado: t.mayor,
+      menor: t.menor,
+      keyCode: t.key,
+      createdAt: Date.now(),
+    };
+    renderAcordesReales();
+    await addDoc(collection(db, "spins"), {
+      roomId: state.roomId,
+      tipo: "tonalidad",
+      resultado: t.mayor,
+      menor: t.menor,
+      keyCode: t.key,
+      createdAt: Date.now(),
+    });
   });
+}
+
+async function spinProgresion() {
+  const idx = Math.floor(Math.random() * PROGRESIONES.length);
+  wheelProgresion.spin(idx, async () => {
+    const resultado = PROGRESIONES[idx];
+    state.spins.acordes = { resultado, createdAt: Date.now() };
+    renderAcordesReales();
+    await saveSpin("acordes", resultado);
+  });
+}
+
+function renderAcordesReales() {
+  const info = getAcordesRealesLabel();
+  if (!info) return;
+
+  const tonoLabel = `${info.tonoMayor} mayor / ${info.tonoMenor} menor`;
+
+  // Resultado en la card de tonalidad
+  const elTono = document.getElementById("spin-tonalidad-result");
+  if (elTono) elTono.textContent = tonoLabel;
+
+  // Resultado en la card de progresión
+  const el = document.getElementById("spin-acordes-result");
+  if (el) el.textContent = info.acordesReales;
+
+  // Panel combinado debajo de las ruletas
+  const wrap = document.getElementById("acordes-reales-wrap");
+  const display = document.getElementById("acordes-reales-display");
+  if (wrap && display) {
+    display.textContent = `${tonoLabel} · ${info.acordesReales}`;
+    wrap.classList.remove("hidden");
+  }
 }
 
 async function saveSpin(tipo, resultado) {
@@ -514,14 +649,29 @@ function renderSpins(spins) {
   const byTipo = {};
   spins.forEach((s) => {
     if (!byTipo[s.tipo] || s.createdAt > byTipo[s.tipo].createdAt) {
-      byTipo[s.tipo] = s;
+      // Preservar campos extra (menor, keyCode para tonalidad)
+      byTipo[s.tipo] = { ...s };
     }
   });
   state.spins = byTipo;
 
   setSpinResult("persona", byTipo.persona?.resultado);
   setSpinResult("estilo", byTipo.estilo?.resultado);
-  setSpinResult("acordes", byTipo.acordes?.resultado);
+
+  // Tonalidad y progresión → acordes reales
+  if (byTipo.tonalidad && byTipo.acordes) {
+    renderAcordesReales();
+  } else if (byTipo.tonalidad) {
+    setSpinResult("tonalidad", byTipo.tonalidad.resultado);
+  }
+
+  // Compositor del sorteo → notificar a todos
+  if (byTipo.compositor?.resultado) {
+    const ganadorEl = document.getElementById("sorteo-result");
+    const wrapEl = document.getElementById("sorteo-result-wrap");
+    if (ganadorEl) ganadorEl.textContent = byTipo.compositor.resultado;
+    if (wrapEl) wrapEl.classList.remove("hidden");
+  }
 
   updateFinalActions();
 }
@@ -548,10 +698,13 @@ function renderFinal() {
 function generarLetra() {
   const felices = state.cards.filter((c) => c.tipo === "feliz");
   const tristes = state.cards.filter((c) => c.tipo === "triste");
-  const estilo  = state.spins.estilo?.resultado  || "Rock";
-  const acordes = state.spins.acordes?.resultado || "I–V–vi–IV";
+  const estilo = state.spins.estilo?.resultado || "Rock";
+  const info = getAcordesRealesLabel();
+  const acordesStr = info
+    ? `${info.tonoMayor} mayor (${info.acordesReales})`
+    : (state.spins.acordes?.resultado || "I-V-vi-IV");
 
-  const promptIA = `Sos un compositor. Escribí la letra de una canción de estilo ${estilo} con progresión de acordes ${acordes}.
+  const promptIA = `Sos un compositor. Escribí la letra de una canción de estilo ${estilo} con progresión de acordes ${acordesStr}.
 
 La canción refleja la retrospectiva de un equipo de tech. Inspirate en esto:
 
@@ -568,14 +721,18 @@ Máximo 20 líneas.`.slice(0, 5000);
 }
 
 function actualizarPrompt() {
-  const estilo  = state.spins.estilo?.resultado  || "Rock";
-  const acordes = state.spins.acordes?.resultado || "I–V–vi–IV";
+  const estilo = state.spins.estilo?.resultado || "Rock";
   const tags = SUNO_TAGS[estilo] || estilo.toLowerCase();
+  const info = getAcordesRealesLabel();
 
-  const sunoPrompt = `${tags}, fun, upbeat, team retrospective
+  let chordsLine = "";
+  if (info) {
+    chordsLine = `\nkey of ${info.tonoMayor} major\nchord progression: ${info.acordesReales}`;
+  } else if (state.spins.acordes?.resultado) {
+    chordsLine = `\nchord progression: ${state.spins.acordes.resultado}`;
+  }
 
-[chord progression: ${acordes}]`;
-
+  const sunoPrompt = `${tags}, fun, upbeat, team retrospective${chordsLine}`;
   document.getElementById("prompt-preview").textContent = sunoPrompt;
 }
 
@@ -681,7 +838,14 @@ function watchRoom(roomId) {
 
     if (data.finalizedAt && !state.finalized) {
       state.finalized = true;
+      // Todos pasan a modo solo lectura con navegación libre
+      state.readOnlyMode = true;
       lockUI();
+    }
+
+    // Sincronizar lista de participantes del sorteo
+    if (data.sorteoParticipantes !== undefined) {
+      applySorteoParticipantes(data.sorteoParticipantes);
     }
 
     // Solo seguir al facilitador si no somos facilitador NI estamos en modo solo lectura
@@ -717,7 +881,7 @@ function lockUI() {
 
   // Ocultar botones de escritura
   ["btn-add-checklist", "btn-add-feliz", "btn-add-triste",
-   "btn-spin-persona", "btn-spin-estilo", "btn-spin-acordes",
+   "btn-spin-persona", "btn-spin-estilo", "btn-spin-tonalidad", "btn-spin-progresion",
    "btn-spin-sorteo", "btn-finalize", "btn-regenerar"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
@@ -931,6 +1095,11 @@ async function leaveRoom() {
   state.readOnlyMode = false;
   state.presenceRef = null;
 
+  // Restablecer UI bloqueada por lockUI
+  document.querySelectorAll("input, textarea").forEach((el) => (el.disabled = false));
+  document.querySelectorAll("button").forEach((el) => (el.disabled = false));
+  document.getElementById("finalized-banner").classList.add("hidden");
+
   document.getElementById("app-header").classList.add("hidden");
   document.getElementById("app-nav").classList.add("hidden");
   document.getElementById("connected-users").innerHTML = "";
@@ -998,21 +1167,35 @@ function initNav() {
 // ========================================
 let wheelSorteo;
 
+let _sorteoDebounce = null;
+
 function initSorteo() {
   wheelSorteo = new SpinWheel("wheel-sorteo", ["?"]);
 
-  document.getElementById("sorteo-input").addEventListener("input", () => {
-    const lista = getSorteoList();
+  const input = document.getElementById("sorteo-input");
+
+  // Solo el facilitador puede escribir; sincroniza a Firestore con debounce
+  input.addEventListener("input", () => {
+    if (!state.isFacilitator) return;
+    const lista = getSorteoListFromInput();
     wheelSorteo.setOptions(lista.length ? lista : ["?"]);
+
+    clearTimeout(_sorteoDebounce);
+    _sorteoDebounce = setTimeout(() => {
+      if (state.roomId) {
+        updateDoc(doc(db, "rooms", state.roomId), {
+          sorteoParticipantes: input.value.trim(),
+        }).catch(() => {});
+      }
+    }, 600);
   });
 
   document.getElementById("btn-spin-sorteo").addEventListener("click", async () => {
-    const lista = getSorteoList();
+    const lista = getSorteoListFromInput();
     if (!lista.length) return;
     const idx = Math.floor(Math.random() * lista.length);
     wheelSorteo.spin(idx, async () => {
       const ganador = lista[idx];
-      // Mostrar resultado y guardar en state para el PDF
       document.getElementById("sorteo-result").textContent = ganador;
       document.getElementById("sorteo-result-wrap").classList.remove("hidden");
       state.spins.compositor = { resultado: ganador, createdAt: Date.now() };
@@ -1022,9 +1205,17 @@ function initSorteo() {
   });
 }
 
-function getSorteoList() {
+function getSorteoListFromInput() {
   return document.getElementById("sorteo-input").value
     .split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function applySorteoParticipantes(valor) {
+  const input = document.getElementById("sorteo-input");
+  if (!input || state.isFacilitator) return; // facilitador ya lo ve en su input
+  input.value = valor || "";
+  const lista = valor ? valor.split(",").map(s => s.trim()).filter(Boolean) : [];
+  if (wheelSorteo) wheelSorteo.setOptions(lista.length ? lista : ["?"]);
 }
 
 // ========================================

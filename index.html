@@ -27,7 +27,7 @@
 
   <!-- ===================== HEADER ===================== -->
   <header id="app-header" class="hidden">
-    <span class="header-logo">🎸 Retro Music Spartans</span>
+    <span class="header-logo">🎸 RetroJam Spartans</span>
     <div class="header-board-info">
       <span id="header-board-name" class="header-board-name"></span>
       <span id="header-room-code"></span>
@@ -53,8 +53,8 @@
   <section id="screen-home" class="screen active">
     <div class="home-box">
       <div class="home-guitar">🎸</div>
-      <h1>Retro Music<br>Spartans</h1>
-      <p class="subtitle">Retrospectiva + canción</p>
+      <h1>RetroJam<br>Spartans</h1>
+      <p class="subtitle">v1.0.0</p>
 
       <div class="form-group">
         <label for="input-name">Tu nombre</label>
@@ -149,16 +149,36 @@
         <div id="spin-estilo-result" class="spin-result"></div>
       </div>
 
+      <!-- Tonalidad (círculo de quintas) -->
       <div class="spin-card">
-        <h3>🎼 Progresión de acordes</h3>
+        <h3>🎵 Tonalidad</h3>
+        <p class="spin-subtitle">Círculo de quintas</p>
         <div class="wheel-wrap">
-          <canvas id="wheel-acordes" width="220" height="220"></canvas>
+          <canvas id="wheel-tonalidad" width="220" height="220"></canvas>
         </div>
-        <button id="btn-spin-acordes" class="btn-primary">Girar</button>
+        <button id="btn-spin-tonalidad" class="btn-primary">Girar</button>
+        <div id="spin-tonalidad-result" class="spin-result"></div>
+      </div>
+
+      <!-- Progresión -->
+      <div class="spin-card">
+        <h3>🎼 Progresión</h3>
+        <p class="spin-subtitle">Patrón de grados</p>
+        <div class="wheel-wrap">
+          <canvas id="wheel-progresion" width="220" height="220"></canvas>
+        </div>
+        <button id="btn-spin-progresion" class="btn-primary">Girar</button>
         <div id="spin-acordes-result" class="spin-result"></div>
       </div>
 
     </div>
+
+    <!-- Resultado combinado -->
+    <div id="acordes-reales-wrap" class="acordes-reales-wrap hidden">
+      <span class="acordes-reales-label">Acordes reales:</span>
+      <span id="acordes-reales-display" class="acordes-reales-display"></span>
+    </div>
+
   </section>
 
   <!-- ===================== SCREEN: IA ===================== -->
