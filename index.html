@@ -45,6 +45,7 @@
     <button class="nav-btn" data-screen="retro">Retro</button>
     <button class="nav-btn" data-screen="spins">Ruletas</button>
     <button class="nav-btn" data-screen="final">🤖 IA</button>
+    <button class="nav-btn" data-screen="accionables">📋 Accionables</button>
     <button class="nav-btn" data-screen="sorteo">🎲 Sorteo</button>
     <span id="nav-lock-label" class="nav-lock-label hidden">🔒 El facilitador controla la navegación</span>
   </nav>
@@ -204,6 +205,19 @@
     </div>
 
     <button id="btn-regenerar" class="btn-secondary">Regenerar</button>
+  </section>
+
+  <!-- ===================== SCREEN: ACCIONABLES ===================== -->
+  <section id="screen-accionables" class="screen hidden">
+    <h2>📋 Accionables</h2>
+    <p class="accionables-subtitle">Canciones a sacar para la próxima sesión</p>
+
+    <div class="input-col">
+      <textarea id="accionable-input" placeholder="Nuevo accionable..." maxlength="300" rows="2"></textarea>
+      <button id="btn-add-accionable" class="btn-primary">Agregar</button>
+    </div>
+
+    <div id="cards-accionables" class="cards-list"></div>
   </section>
 
   <!-- ===================== SCREEN: SORTEO ===================== -->

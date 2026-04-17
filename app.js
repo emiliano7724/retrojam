@@ -175,6 +175,7 @@ function enterRoom(roomId, userName, isFacilitator, facilName, boardName, readOn
   document.getElementById("checklist-list").innerHTML = "";
   document.getElementById("cards-feliz").innerHTML = "";
   document.getElementById("cards-triste").innerHTML = "";
+  document.getElementById("cards-accionables").innerHTML = "";
   document.getElementById("sorteo-input").value = "";
   document.getElementById("sorteo-result-wrap").classList.add("hidden");
   document.getElementById("sorteo-result").textContent = "";
@@ -261,6 +262,12 @@ function renderChecklist(items) {
 // ========================================
 // SCREEN: RETRO
 // ========================================
+const CARD_INPUTS = {
+  feliz: "retro-feliz-input",
+  triste: "retro-triste-input",
+  accionable: "accionable-input",
+};
+
 function initRetro() {
   document.getElementById("btn-add-feliz").addEventListener("click", () => addCard("feliz"));
   document.getElementById("btn-add-triste").addEventListener("click", () => addCard("triste"));
@@ -273,9 +280,16 @@ function initRetro() {
   });
 }
 
+function initAccionables() {
+  document.getElementById("btn-add-accionable").addEventListener("click", () => addCard("accionable"));
+  document.getElementById("accionable-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addCard("accionable"); }
+  });
+}
+
 async function addCard(tipo) {
-  const inputId = tipo === "feliz" ? "retro-feliz-input" : "retro-triste-input";
-  const input = document.getElementById(inputId);
+  const input = document.getElementById(CARD_INPUTS[tipo]);
+  if (!input) return;
   const texto = input.value.trim();
   if (!texto) return;
 
@@ -292,11 +306,9 @@ async function addCard(tipo) {
 
 function renderCards(cards) {
   state.cards = cards;
-  const felices = cards.filter((c) => c.tipo === "feliz");
-  const tristes = cards.filter((c) => c.tipo === "triste");
-
-  renderCardList("cards-feliz", felices);
-  renderCardList("cards-triste", tristes);
+  renderCardList("cards-feliz", cards.filter((c) => c.tipo === "feliz"));
+  renderCardList("cards-triste", cards.filter((c) => c.tipo === "triste"));
+  renderCardList("cards-accionables", cards.filter((c) => c.tipo === "accionable"));
 }
 
 function renderCardList(containerId, cards) {
@@ -880,7 +892,7 @@ function lockUI() {
   });
 
   // Ocultar botones de escritura
-  ["btn-add-checklist", "btn-add-feliz", "btn-add-triste",
+  ["btn-add-checklist", "btn-add-feliz", "btn-add-triste", "btn-add-accionable",
    "btn-spin-persona", "btn-spin-estilo", "btn-spin-tonalidad", "btn-spin-progresion",
    "btn-spin-sorteo", "btn-finalize", "btn-regenerar"].forEach((id) => {
     const el = document.getElementById(id);
@@ -973,6 +985,14 @@ function generatePDF() {
   if (tristes.length) {
     section("CANCIONES TRISTES PARA VOLVERNOS MEJOR");
     tristes.forEach((c) => line(`- ${c.texto}   — ${c.autor}`, 2));
+    gap();
+  }
+
+  // ── Accionables ──
+  const accionables = state.cards.filter((c) => c.tipo === "accionable");
+  if (accionables.length) {
+    section("ACCIONABLES — CANCIONES A SACAR PARA LA PROXIMA SESION");
+    accionables.forEach((c) => line(`> ${c.texto}   — ${c.autor}`, 2));
     gap();
   }
 
@@ -1227,6 +1247,7 @@ function init() {
   initRetro();
   initSpins();
   initFinal();
+  initAccionables();
   initSorteo();
   initSalaCerrada();
   initNav();

@@ -757,6 +757,21 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 }
 .final-actions button { flex: 1; }
 
+/* ── ACCIONABLES ── */
+.accionables-subtitle {
+  color: var(--text-3);
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+}
+
+#screen-accionables .input-col {
+  margin-bottom: 24px;
+}
+
+#screen-accionables .retro-card {
+  border-left: 3px solid var(--orange);
+}
+
 /* ── Acordes reales combinados ── */
 .acordes-reales-wrap {
   margin-top: 20px;
